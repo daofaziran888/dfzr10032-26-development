@@ -47,6 +47,7 @@
             >
               {{ action }}
             </button>
+            <button class="link" type="button" @click="openParse(row)">接入解析</button>
           </td>
         </tr>
         <tr v-if="!rows.length">
@@ -54,6 +55,31 @@
         </tr>
       </tbody>
     </table>
+
+    <section v-if="parseResult" class="panel">
+      <header class="panel-head">
+        <h3>接入解析结果 · {{ parseResult['来源编号'] }}</h3>
+        <span class="muted">定位 {{ parseResult['items'].length }} 条 · 物理行 {{ parseResult['物理行数'] }}</span>
+      </header>
+      <table class="data-table">
+        <thead>
+          <tr><th>定位编号</th><th>运单号</th><th>物理行</th><th>字段定位</th><th>解析状态</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in parseResult['items']" :key="item['定位编号']">
+            <td>{{ item['定位编号'] }}</td>
+            <td>{{ item['运单号'] }}</td>
+            <td>{{ item['物理行'] }}</td>
+            <td class="wrap-cell">
+              <span v-for="field in item['字段定位']" :key="field['字段名']" class="field-chip">
+                {{ field['字段名'] }}（{{ field['起始行'] }}:{{ field['起始列'] }}）
+              </span>
+            </td>
+            <td :class="{ 'error-text': item['解析状态'] === '解析异常' }">{{ item['解析状态'] }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
 
     <footer class="page-foot">
       <span>共 {{ total }} 条数据接入通道记录</span>
@@ -75,6 +101,25 @@
             <footer class="modal-foot">
               <button class="btn" type="button" @click="showCreateModal = false">取消</button>
               <button class="btn primary" type="submit">提交登记</button>
+            </footer>
+          </form>
+        </div>
+      </div>
+      <div v-if="showParseModal" class="modal-overlay" @click.self="showParseModal = false">
+        <div class="modal-card">
+          <header class="modal-head">
+            <h3>接入解析</h3>
+            <button class="btn ghost" type="button" @click="showParseModal = false">&times;</button>
+          </header>
+          <form class="modal-body" @submit.prevent="submitParse">
+            <label class="modal-field">
+              <span>来源编号</span>
+              <input v-model="parseSourceNo" placeholder="UPLD-0002 或 SAMP-0001" required />
+            </label>
+            <p class="muted">解析结果复用采集行定位记录；带引号的多行字段按语法切分，抽取失败保留原文位置。</p>
+            <footer class="modal-foot">
+              <button class="btn" type="button" @click="showParseModal = false">取消</button>
+              <button class="btn primary" type="submit">开始解析</button>
             </footer>
           </form>
         </div>
@@ -103,6 +148,10 @@ const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
 const showCreateModal = ref(false)
 const createFields = ref<Record<string, string>>({})
+const showParseModal = ref(false)
+const parseSourceNo = ref('UPLD-0002')
+const parseTarget = ref<Row | null>(null)
+const parseResult = ref<Record<string, any> | null>(null)
 
 function updateStats() {
   const data = rows.value
@@ -118,6 +167,32 @@ function resetFilters() {
 
 function exportRows() {
   window.open(`${ENDPOINT}/export`, '_blank')
+}
+
+function openParse(row: Row) {
+  errorMessage.value = ''
+  parseResult.value = null
+  parseTarget.value = row
+  showParseModal.value = true
+}
+
+async function submitParse() {
+  errorMessage.value = ''
+  if (!parseTarget.value) return
+  try {
+    const response = await request(`${ENDPOINT}/${parseTarget.value.id}/parse`, {
+      method: 'POST',
+      body: JSON.stringify({ values: { 来源编号: parseSourceNo.value } }),
+    })
+    const payload = await response.json()
+    if (!payload.ok) {
+      throw new Error(payload.message || '接入解析失败')
+    }
+    parseResult.value = payload.entry
+    showParseModal.value = false
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '接入解析失败'
+  }
 }
 
 function openCreate() {

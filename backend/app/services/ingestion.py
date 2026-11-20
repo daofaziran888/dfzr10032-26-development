@@ -63,3 +63,46 @@ class IngestionService:
         entry["pending"] = target != STATUS_ORDER[-1]
         entry["abnormal"] = action in NEGATIVE_ACTIONS
         return entry, f"接入通道已{action}"
+
+    # ---------- 接入解析：复用采集行定位 ----------
+
+    def parse_payload(
+        self,
+        entry_id: int,
+        *,
+        source_no: str,
+        source_type: str | None = None,
+    ) -> tuple[dict[str, Any] | None, str]:
+        """接入接口解析正文样本或上传记录，返回采集行定位记录。
+
+        带引号的多行字段按语法切分：引号内的换行属于字段值，不会被误切成下一条
+        记录。解析异常不拦截接入，记录照常落成定位，供校验人员核对原文位置。
+        """
+        entry = store.find(MODULE, entry_id)
+        if entry is None:
+            return None, f"接入通道 {entry_id} 不存在或已归档"
+
+        from app.services.location import location_service
+
+        try:
+            kind, source_row, locations = location_service.ensure_source_locations(source_no, source_type)
+        except LookupError as error:
+            return None, str(error)
+
+        entry["最近解析来源"] = source_row.get("上传编号") if kind == "上传记录" else source_row.get("样本编号")
+        entry["最近解析定位"] = [item.get("定位编号") for item in locations]
+        entry["解析异常"] = list(source_row.get("解析异常") or [])
+        abnormal = bool(source_row.get("解析异常"))
+        entry["abnormal"] = abnormal
+        message = f"已接入 {len(locations)} 条记录，复用采集行定位 {len(locations)} 条"
+        if abnormal:
+            message += "；存在解析异常，已保留原文位置供核对"
+        return {
+            "通道": entry,
+            "来源类型": kind,
+            "来源编号": source_row.get("上传编号") if kind == "上传记录" else source_row.get("样本编号"),
+            "物理行数": source_row.get("物理行数"),
+            "解析状态": source_row.get("解析状态"),
+            "解析异常": list(source_row.get("解析异常") or []),
+            "items": locations,
+        }, message

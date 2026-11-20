@@ -47,6 +47,7 @@
             >
               {{ action }}
             </button>
+            <button class="link" type="button" @click="openCheck(row)">缺项校验</button>
           </td>
         </tr>
         <tr v-if="!rows.length">
@@ -54,6 +55,31 @@
         </tr>
       </tbody>
     </table>
+
+    <section v-if="checkResult" class="panel">
+      <header class="panel-head">
+        <h3>缺项处置 · {{ checkResult['来源编号'] }}</h3>
+        <span class="muted">定位 {{ checkResult['定位条数'] }} 条</span>
+      </header>
+      <table class="data-table">
+        <thead>
+          <tr><th>处置编号</th><th>运单号</th><th>字段</th><th>当前定位</th><th>物理行</th><th>状态</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in [...checkResult['新建'], ...checkResult['更新']]" :key="item['处置编号']">
+            <td>{{ item['处置编号'] }}</td>
+            <td>{{ item['运单号'] }}</td>
+            <td>{{ item['字段名'] }}</td>
+            <td>{{ item['当前定位编号'] }}</td>
+            <td>{{ item['当前位置']?.['物理行'] }}</td>
+            <td>{{ item['status'] }}</td>
+          </tr>
+          <tr v-if="!checkResult['新建'].length && !checkResult['更新'].length">
+            <td colspan="6" class="empty-state">该来源没有新增缺项</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
 
     <footer class="page-foot">
       <span>共 {{ total }} 条采集结果校验记录</span>
@@ -75,6 +101,25 @@
             <footer class="modal-foot">
               <button class="btn" type="button" @click="showCreateModal = false">取消</button>
               <button class="btn primary" type="submit">提交登记</button>
+            </footer>
+          </form>
+        </div>
+      </div>
+      <div v-if="showCheckModal" class="modal-overlay" @click.self="showCheckModal = false">
+        <div class="modal-card">
+          <header class="modal-head">
+            <h3>缺项校验</h3>
+            <button class="btn ghost" type="button" @click="showCheckModal = false">&times;</button>
+          </header>
+          <form class="modal-body" @submit.prevent="submitCheck">
+            <label class="modal-field">
+              <span>来源编号</span>
+              <input v-model="checkSourceNo" placeholder="UPLD-0002 或 SAMP-0001" required />
+            </label>
+            <p class="muted">读取采集行定位数据集生成缺项处置；同一票货重投时按运单号归并，不重复建单。</p>
+            <footer class="modal-foot">
+              <button class="btn" type="button" @click="showCheckModal = false">取消</button>
+              <button class="btn primary" type="submit">开始校验</button>
             </footer>
           </form>
         </div>
@@ -103,6 +148,10 @@ const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
 const showCreateModal = ref(false)
 const createFields = ref<Record<string, string>>({})
+const showCheckModal = ref(false)
+const checkSourceNo = ref('UPLD-0002')
+const checkTarget = ref<Row | null>(null)
+const checkResult = ref<Record<string, any> | null>(null)
 
 function updateStats() {
   const data = rows.value
@@ -118,6 +167,32 @@ function resetFilters() {
 
 function exportRows() {
   window.open(`${ENDPOINT}/export`, '_blank')
+}
+
+function openCheck(row: Row) {
+  errorMessage.value = ''
+  checkResult.value = null
+  checkTarget.value = row
+  showCheckModal.value = true
+}
+
+async function submitCheck() {
+  errorMessage.value = ''
+  if (!checkTarget.value) return
+  try {
+    const response = await request(`${ENDPOINT}/${checkTarget.value.id}/check`, {
+      method: 'POST',
+      body: JSON.stringify({ values: { 来源编号: checkSourceNo.value } }),
+    })
+    const payload = await response.json()
+    if (!payload.ok) {
+      throw new Error(payload.message || '缺项校验失败')
+    }
+    checkResult.value = payload.entry
+    showCheckModal.value = false
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '缺项校验失败'
+  }
 }
 
 function openCreate() {

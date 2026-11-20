@@ -14,6 +14,8 @@ class Store:
         self._tables: dict[str, list[dict[str, Any]]] = {
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
+        # 启动期派生数据（采集行定位、缺项处置）只生成一次。
+        self.meta: dict[str, Any] = {}
 
     def module_names(self) -> list[str]:
         return sorted(self._tables)

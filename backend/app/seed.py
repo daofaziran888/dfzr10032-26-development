@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.seed_location import SAMPLE_ROWS, UPLOAD_ROWS
+
 SEED_ROWS: dict[str, list[dict[str, Any]]] = {
     "datasource": [{'id': 1,
   'status': '草稿',
@@ -617,3 +619,7 @@ SEED_ROWS: dict[str, list[dict[str, Any]]] = {
   '平均耗秒': '采集报告样例3',
   '生成时间': '2026-09-03'}]
 }
+
+# 正文样本与上传记录支撑采集行定位，单独放在 seed_location 里保持可读。
+SEED_ROWS["sample"] = SAMPLE_ROWS
+SEED_ROWS["upload"] = UPLOAD_ROWS

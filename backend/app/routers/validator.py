@@ -65,3 +65,25 @@ def run_action(entry_id: int, payload: EntryPayload) -> ActionResult:
     if entry is None:
         return ActionResult(ok=False, message=message)
     return ActionResult(ok=True, message=message, entry=entry)
+
+
+@router.post("/{entry_id}/check", response_model=ActionResult)
+def check_results(entry_id: int, payload: EntryPayload) -> ActionResult:
+    """采集结果校验：读取采集行定位数据集，生成缺项处置明细。
+
+    解析结果与缺项校验通过同一个定位编号互相引用，重投样本时按运单号归并到
+    已有处置，不重复建单。
+    """
+    values = payload.values
+    source_no = str(values.get("来源编号") or values.get("上传编号") or values.get("样本编号") or "").strip() or None
+    fields = values.get("字段名")
+    result, message = service.check_results(
+        entry_id,
+        source_no=source_no,
+        source_type=str(values.get("来源类型") or "") or None,
+        fields=fields if isinstance(fields, list) else None,
+        upload_no=None if source_no else str(values.get("上传编号") or "") or None,
+    )
+    if result is None:
+        return ActionResult(ok=False, message=message)
+    return ActionResult(ok=True, message=message, entry=result)

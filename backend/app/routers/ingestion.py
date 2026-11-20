@@ -65,3 +65,24 @@ def run_action(entry_id: int, payload: EntryPayload) -> ActionResult:
     if entry is None:
         return ActionResult(ok=False, message=message)
     return ActionResult(ok=True, message=message, entry=entry)
+
+
+@router.post("/{entry_id}/parse", response_model=ActionResult)
+def parse_payload(entry_id: int, payload: EntryPayload) -> ActionResult:
+    """接入解析：从正文样本或上传记录生成采集行定位，返回同一批定位记录。
+
+    带引号的多行字段按语法切分，引号内换行不会拆出假记录；抽取失败也保留原文
+    行、列，校验人员可按定位编号核对。
+    """
+    values = payload.values
+    source_no = str(values.get("来源编号") or values.get("上传编号") or values.get("样本编号") or "").strip()
+    if not source_no:
+        return ActionResult(ok=False, message="请提供来源编号（上传编号或样本编号）")
+    result, message = service.parse_payload(
+        entry_id,
+        source_no=source_no,
+        source_type=str(values.get("来源类型") or "") or None,
+    )
+    if result is None:
+        return ActionResult(ok=False, message=message)
+    return ActionResult(ok=True, message=message, entry=result)

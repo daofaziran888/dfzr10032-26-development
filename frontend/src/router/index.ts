@@ -18,6 +18,7 @@ const Transform = () => import('@/views/transform/index.vue')
 const Flow = () => import('@/views/flow/index.vue')
 const Lineage = () => import('@/views/lineage/index.vue')
 const Report = () => import('@/views/report/index.vue')
+const Location = () => import('@/views/location/index.vue')
 
 const router = createRouter({
   history: createWebHistory(),
@@ -40,6 +41,7 @@ const router = createRouter({
     { path: '/flow', name: 'flow', component: Flow },
     { path: '/lineage', name: 'lineage', component: Lineage },
     { path: '/report', name: 'report', component: Report },
+    { path: '/location', name: 'location', component: Location },
   ],
 })
 

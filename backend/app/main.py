@@ -26,6 +26,28 @@ for module in ROUTERS:
     app.include_router(module.router)
 
 
+def _bootstrap() -> None:
+    """启动时建立示例样本的定位与缺项处置，打开页面就能看到场景。"""
+    from app.services.disposition import disposition_service
+    from app.services.location import location_service
+
+    try:
+        for sample_no in ("SAMP-0001", "SAMP-0002"):
+            location_service.ensure_source_locations(sample_no, "正文样本")
+        for upload_no in ("UPLD-0001", "UPLD-0002", "UPLD-0003"):
+            try:
+                location_service.ensure_source_locations(upload_no, "上传记录")
+            except LookupError:
+                continue
+        # 首版货单先产生缺项处置，供复核员按待办领取。
+        disposition_service.generate(source_no="UPLD-0001", operator="值班管理员")
+    except LookupError:
+        pass
+
+
+_bootstrap()
+
+
 @app.get("/api/health")
 def health() -> dict[str, object]:
     """健康检查：确认服务已经监听、示例数据已经就绪。"""

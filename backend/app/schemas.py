@@ -28,6 +28,16 @@ class EntryPayload(BaseModel):
     remark: str | None = None
 
 
+class RecheckPayload(BaseModel):
+    """再次校验入参：按处置编号或运单号找到同一票货的最新定位。"""
+
+    disposition_ref: str | None = None
+    waybill: str | None = None
+    upload_no: str | None = None
+    assignee: str = "值班管理员"
+    auto_claim: bool = False
+
+
 
 class DatasourceEntry(BaseModel):
     """数据源明细结构。"""
